@@ -113,8 +113,8 @@ add_unit_tests(POST)
 # needs it to). Building the same 3 source files a second time, as an
 # ordinary STATIC library, sidesteps that without touching the original
 # MODULE target NVIDIA's own build/install/example tooling still expects.
-add_library(prod-lib-mdl_sdk_static STATIC ${PROJECT_SOURCES})
-target_link_libraries(prod-lib-mdl_sdk_static PRIVATE include-mi)
+add_library(prod-lib-mdl_sdk_static STATIC ${PROJECT_SOURCES} noorray_distiller_bridge.cpp)
+target_link_libraries(prod-lib-mdl_sdk_static PRIVATE include-mi base-lib-plug base-system-main)
 # "pch.h" (#include'd unconditionally by create_from_base_preset's source
 # convention) is just an empty placeholder file written to
 # CMAKE_CURRENT_BINARY_DIR (utilities.cmake:782-783), not a real
