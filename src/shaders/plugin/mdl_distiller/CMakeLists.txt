@@ -144,7 +144,18 @@ add_target_install(
 # PLUG::Plug_module::load_static_plugin(), added alongside this patch) instead
 # of dlopen-ing the MODULE target above -- without touching that MODULE
 # target, which NVIDIA's own build/install tooling still expects.
-add_library(shaders-plugin-mdl_distiller_static STATIC ${PROJECT_SOURCES})
+#
+# mdl_assert.cpp is excluded: it defines mi::mdl::report_assertion_failure(),
+# meant to be a private definition scoped to this plugin's own standalone .so
+# (where duplicate symbols across separate shared objects do not collide) --
+# statically linking it here duplicates the same symbol mdl-compiler-
+# compilercore.a already provides and fails at NoorRay's final link
+# ("multiple definition of report_assertion_failure"). mdl_assert.h's ASSERT
+# macro is still available to every other source in this target; only its .cpp
+# is skipped.
+set(_NOORRAY_STATIC_SOURCES ${PROJECT_SOURCES})
+list(REMOVE_ITEM _NOORRAY_STATIC_SOURCES "mdl_assert.cpp")
+add_library(shaders-plugin-mdl_distiller_static STATIC ${_NOORRAY_STATIC_SOURCES})
 target_link_libraries(shaders-plugin-mdl_distiller_static PRIVATE
     include-mi boost base-system-version)
 target_include_directories(shaders-plugin-mdl_distiller_static PRIVATE
