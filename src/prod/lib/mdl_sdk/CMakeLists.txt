@@ -100,3 +100,29 @@ add_target_install(
 
 # add unit tests
 add_unit_tests(POST)
+
+# --- NoorRay MDL migration patch -------------------------------------------
+# mi_factory() (the only public entry point into the whole SDK, see
+# mdl_sdk_factory.cpp above) only exists as part of this file's own MODULE
+# target -- there is no other copy of it anywhere in the 100+ other static
+# libraries this build otherwise produces. NoorRay links MDL SDK statically
+# rather than via dlopen (see cmake/MDL.cmake for why the MODULE target
+# itself was not simply changed to STATIC: its target_add_dependencies()
+# call above uses PRIVATE linkage internally, which does not propagate
+# through a static library the way NoorRay's own final executable link
+# needs it to). Building the same 3 source files a second time, as an
+# ordinary STATIC library, sidesteps that without touching the original
+# MODULE target NVIDIA's own build/install/example tooling still expects.
+add_library(prod-lib-mdl_sdk_static STATIC ${PROJECT_SOURCES})
+target_link_libraries(prod-lib-mdl_sdk_static PRIVATE include-mi)
+# "pch.h" (#include'd unconditionally by create_from_base_preset's source
+# convention) is just an empty placeholder file written to
+# CMAKE_CURRENT_BINARY_DIR (utilities.cmake:782-783), not a real
+# precompiled header -- this only needs that directory on the include path,
+# not CMake's target_precompile_headers machinery.
+target_include_directories(prod-lib-mdl_sdk_static PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${MDL_SRC_FOLDER}
+    ${MDL_INCLUDE_FOLDER})
+add_library(mdl::mdl_sdk_factory ALIAS prod-lib-mdl_sdk_static)
+# --- end NoorRay MDL migration patch ---------------------------------------

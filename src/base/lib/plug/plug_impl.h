@@ -87,6 +87,10 @@ public:
 
     bool load_library( const char* path);
 
+    // --- NoorRay MDL migration patch ----------------------------------------
+    bool load_static_plugin( mi::base::Plugin_factory* factory, const char* virtual_path);
+    // --- end NoorRay MDL migration patch ------------------------------------
+
     size_t get_plugin_count();
 
     mi::base::IPlugin_descriptor* get_plugin( size_t index);

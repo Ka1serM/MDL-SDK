@@ -31,6 +31,7 @@
 
 #include <cstdlib>
 #include <base/system/main/i_module.h>
+#include <mi/base/plugin.h>
 
 namespace mi { namespace base { class Plugin; class IPlugin_descriptor; } }
 namespace mi { namespace neuraylib { class IPlugin_api; } }
@@ -54,6 +55,23 @@ public:
     ///
     /// \return \c true in case of success, \c false otherwise
     virtual bool load_library( const char* path) = 0;
+
+    // --- NoorRay MDL migration patch ----------------------------------------
+    /// Registers a statically-linked plugin's factory in-process, without dlopen.
+    ///
+    /// For plugins NoorRay builds as an ordinary static library and links directly
+    /// into the executable (see the mdl_distiller CMake patch) instead of NVIDIA's
+    /// usual dlopen'd MODULE library. Mirrors load_library()'s enumerate-until-null /
+    /// plugin-system-version-check contract exactly, just calling \p factory directly
+    /// instead of dlsym-ing it out of a loaded library.
+    ///
+    /// \param factory       The plugin's own extern "C" mi_plugin_factory function.
+    /// \param virtual_path  A label stored as this plugin's "library path" for
+    ///                      diagnostics and duplicate-load detection; no file needs
+    ///                      to exist at this path.
+    /// \return \c true in case of success, \c false otherwise
+    virtual bool load_static_plugin( mi::base::Plugin_factory* factory, const char* virtual_path) = 0;
+    // --- end NoorRay MDL migration patch ------------------------------------
 
     /// Library unloading during runtime is not supported in neuray. If needed, note that passing
     /// the same argument as for load_library() is not guaranteed to work since the path is resolved

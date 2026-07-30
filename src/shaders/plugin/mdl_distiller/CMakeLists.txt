@@ -130,3 +130,26 @@ add_library(mdl::mdl_distiller ALIAS ${PROJECT_NAME})
 add_target_install(
     TARGET ${PROJECT_NAME}
     )
+
+# --- NoorRay MDL migration patch --------------------------------------------
+# Same reasoning as prod-lib-mdl_sdk's own static-linking patch (see
+# src/prod/lib/mdl_sdk/CMakeLists.txt): NoorRay links MDL SDK statically
+# rather than via dlopen, but distiller target models (transmissive_pbr, ue4,
+# ...) only exist inside this plugin -- MI::DIST::Dist_module_impl reads them
+# from whatever mi::base::Plugin objects MI::PLUG::Plug_module already holds,
+# and the only public way to get one in there is Plug_module::load_library(),
+# which unconditionally dlopens a .so. Building the same generated sources a
+# second time, as an ordinary STATIC library, gives NoorRay a
+# statically-linked copy of mi_plugin_factory() it can call directly (see
+# PLUG::Plug_module::load_static_plugin(), added alongside this patch) instead
+# of dlopen-ing the MODULE target above -- without touching that MODULE
+# target, which NVIDIA's own build/install tooling still expects.
+add_library(shaders-plugin-mdl_distiller_static STATIC ${PROJECT_SOURCES})
+target_link_libraries(shaders-plugin-mdl_distiller_static PRIVATE
+    include-mi boost base-system-version)
+target_include_directories(shaders-plugin-mdl_distiller_static PRIVATE
+    ${_GENERATED_DIR}
+    ${MDL_SRC_FOLDER}
+    ${MDL_INCLUDE_FOLDER})
+add_library(mdl::mdl_distiller_static ALIAS shaders-plugin-mdl_distiller_static)
+# --- end NoorRay MDL migration patch ----------------------------------------

@@ -116,6 +116,60 @@ bool Plug_module_impl::load_library( const char* path)
     return true;
 }
 
+// --- NoorRay MDL migration patch --------------------------------------------
+// Same enumerate-until-null / version-check contract as load_library() above,
+// minus the LINK::ILibrary dlopen step: the caller already has the plugin's
+// factory function linked directly into this binary (see the mdl_distiller
+// CMake patch, which duplicates the plugin as an ordinary STATIC library
+// alongside its usual dlopen'd MODULE target), so there is no library handle
+// to hold -- Plugin_descriptor_impl gets a null one, which is fine since it is
+// only ever used for reference-counted unloading, which a statically-linked
+// plugin never does.
+bool Plug_module_impl::load_static_plugin( mi::base::Plugin_factory* factory, const char* virtual_path)
+{
+    ASSERT( M_PLUG, factory);
+    ASSERT( M_PLUG, virtual_path);
+
+    mi::base::Lock::Block block( &m_lock);
+
+    const std::string path_str = virtual_path;
+
+    // Do not register the same static plugin more than once.
+    for( size_t i = m_plugins.size(); i > 0; --i)
+        if( strcmp( m_plugins[i-1]->get_plugin_library_path(), path_str.c_str()) == 0) {
+            LOG::mod_log->error(
+                M_PLUG, LOG::Mod_log::C_PLUGIN, 4, "Library %s: already loaded", path_str.c_str());
+            return false;
+        }
+
+    LOG::mod_log->info(
+        M_PLUG, LOG::Mod_log::C_PLUGIN, "Loaded static plugin \"%s\".", path_str.c_str());
+
+    // Invoke plugin factory for all plugins
+    for( size_t i = 0; true; ++i) {
+
+        Plugin_descriptor_impl::Plugin_ptr plugin(
+            factory( static_cast<unsigned int>( i), nullptr),
+            []( mi::base::Plugin* p) { if( p) p->release(); });
+        if( !plugin)
+            break;
+
+        const mi::Sint32 plugin_system_version = plugin->get_plugin_system_version();
+        if( plugin_system_version != mi::base::Plugin::s_version) {
+            LOG::mod_log->error( M_PLUG, LOG::Mod_log::C_PLUGIN, 2,
+                "Library \"%s\": found plugin with unsupported plugin system version %d, "
+                "ignoring plugin.", path_str.c_str(), plugin_system_version);
+            continue;
+        }
+
+        m_plugins.emplace_back( new Plugin_descriptor_impl(
+            mi::base::Handle<LINK::ILibrary>(), std::move( plugin), path_str));
+    }
+
+    return true;
+}
+// --- end NoorRay MDL migration patch ----------------------------------------
+
 size_t Plug_module_impl::get_plugin_count()
 {
     mi::base::Lock::Block block( &m_lock);
